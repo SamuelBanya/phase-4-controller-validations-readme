@@ -1,0 +1,312 @@
+* Notes
+I set this lab with the following commands:
+#+begin_src bash
+bundle install
+rails db:migrate db:seed
+rails s
+#+end_src
+
+I cleaned up the current validation present within the '.create()' method of the '' that was using 'if else' blocks to previously validate upon rendering the response from the server:
+
+NOTE: Notice the use of the '.create!' method instead of JUST the '.create' method, which was used to trigger validation:
+#+begin_src ruby
+class BirdsController < ApplicationController
+  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found_response
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create!(bird_params)
+    render json: bird, status: :created
+  rescue ActiveRecord::RecordInvalid => invalid
+    render json: { errors: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+  # GET /birds/:id
+  def show
+    bird = find_bird
+    render json: bird
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = find_bird
+    bird.update(bird_params)
+    render json: bird
+  end
+
+  # DELETE /birds/:id
+  def destroy
+    bird = find_bird
+    bird.destroy
+    head :no_content
+  end
+
+  private
+
+  def find_bird
+    Bird.find(params[:id])
+  end
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+  def render_not_found_response
+    render json: { error: "Bird not found" }, status: :not_found
+  end
+
+end
+#+end_src
+
+I then updated the '#update' method accordingly with the same idea to utilize a 'rescue ActiveRecord::RecordInvalid => invalid' block:
+
+NOTE: Again, notice the use of the '!' for the '#update' method, which was used to trigger the associated validation:
+#+begin_src ruby
+class BirdsController < ApplicationController
+  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found_response
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create!(bird_params)
+    render json: bird, status: :created
+    rescue ActiveRecord::RecordInvalid => invalid
+      render json: { errors: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+  # GET /birds/:id
+  def show
+    bird = find_bird
+    render json: bird
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = find_bird
+    bird.update!(bird_params)
+    render json: bird
+    rescue ActiveRecord::RecordInvalid => invalid
+      render json: { errors: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+  # DELETE /birds/:id
+  def destroy
+    bird = find_bird
+    bird.destroy
+    head :no_content
+  end
+
+  private
+
+  def find_bird
+    Bird.find(params[:id])
+  end
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+  def render_not_found_response
+    render json: { error: "Bird not found" }, status: :not_found
+  end
+
+end
+#+end_src
+
+I then further refactored the code to include the 'rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity_response' rescue section at the top of the controller, as well as a new 'render_unprocessable_entity_response' private method:
+#+begin_src ruby
+class BirdsController < ApplicationController
+  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found_response
+
+  rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity_response
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create!(bird_params)
+    render json: bird, status: :created
+    rescue ActiveRecord::RecordInvalid => invalid
+      render json: { errors: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+  # GET /birds/:id
+  def show
+    bird = find_bird
+    render json: bird
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = find_bird
+    bird.update!(bird_params)
+    render json: bird
+    rescue ActiveRecord::RecordInvalid => invalid
+      render json: { errors: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+  # DELETE /birds/:id
+  def destroy
+    bird = find_bird
+    bird.destroy
+    head :no_content
+  end
+
+  private
+
+  def find_bird
+    Bird.find(params[:id])
+  end
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+  def render_not_found_response
+    render json: { error: "Bird not found" }, status: :not_found
+  end
+
+  def render_unprocessable_entity_response(invalid)
+    render json: { error: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+end
+#+end_src
+
+I then modified the '#create' and '#update' methods in the 'app/controllers/birds_controller.rb' controller file accordingly with the reference to the 'render_unprocessable_entity_response' private method:
+#+begin_src ruby
+class BirdsController < ApplicationController
+  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found_response
+
+  rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity_response
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create!(bird_params)
+    render json: bird, status: :created
+  end
+
+  # GET /birds/:id
+  def show
+    bird = find_bird
+    render json: bird
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = find_bird
+    bird.update!(bird_params)
+    render json: bird
+  end
+
+  # DELETE /birds/:id
+  def destroy
+    bird = find_bird
+    bird.destroy
+    head :no_content
+  end
+
+  private
+
+  def find_bird
+    Bird.find(params[:id])
+  end
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+  def render_not_found_response
+    render json: { error: "Bird not found" }, status: :not_found
+  end
+
+  def render_unprocessable_entity_response(invalid)
+    render json: { error: invalid.record.errors }, status: :unprocessable_entity
+  end
+
+end
+#+end_src
+
+I then refactored the 'render_unprocessable_entity_response' private method's usage of the 'errors' key value to include .full_messages() so that the 'errors' provided are a single response instead of embedded key values:
+#+begin_src ruby
+class BirdsController < ApplicationController
+  rescue_from ActiveRecord::RecordNotFound, with: :render_not_found_response
+
+  rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity_response
+
+  # GET /birds
+  def index
+    birds = Bird.all
+    render json: birds
+  end
+
+  # POST /birds
+  def create
+    bird = Bird.create!(bird_params)
+    render json: bird, status: :created
+  end
+
+  # GET /birds/:id
+  def show
+    bird = find_bird
+    render json: bird
+  end
+
+  # PATCH /birds/:id
+  def update
+    bird = find_bird
+    bird.update!(bird_params)
+    render json: bird
+  end
+
+  # DELETE /birds/:id
+  def destroy
+    bird = find_bird
+    bird.destroy
+    head :no_content
+  end
+
+  private
+
+  def find_bird
+    Bird.find(params[:id])
+  end
+
+  def bird_params
+    params.permit(:name, :species, :likes)
+  end
+
+  def render_not_found_response
+    render json: { error: "Bird not found" }, status: :not_found
+  end
+
+  def render_unprocessable_entity_response(invalid)
+    # NOTE: This is one possibility if you like nested responses with 'name' and 'species' as separate embedded keys within 'errors':
+    # render json: { error: invalid.record.errors }, status: :unprocessable_entity
+    # NOTE: This provides the full message within a single 'errors' key value:
+    render json: { errors: invalid.record.errors.full_messages }, status: :unprocessable_entity
+  end
+
+end
+#+end_src
